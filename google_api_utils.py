@@ -5,12 +5,17 @@ import os
 import pickle
 import sqlite3
 import urllib.parse
-from typing import Any, Dict, List, Optional, Tuple, Union
+from contextlib import contextmanager
+from dataclasses import dataclass
+from typing import Any, Dict, Generator, List, Optional, Tuple, Union
 
+import firebase_admin.credentials
 import google.auth.credentials
+import google.cloud.firestore
 import google.oauth2.credentials
 import google.oauth2.service_account
 import requests
+from firebase_admin import delete_app, firestore, initialize_app
 from google.auth.transport.requests import Request
 from google.oauth2.service_account import IDTokenCredentials
 from google_auth_oauthlib.flow import InstalledAppFlow
@@ -69,7 +74,7 @@ def _get_credentials_using_oauth_impl(
     )
 
 
-def get_credentials_using_oauth(
+def get_credentials_using_oauth(  # noqa: CCR001
     client_secret_path: str,
     scopes: List[str],
     host: Optional[str] = None,
@@ -174,27 +179,21 @@ def get_credentials_using_service_account(  # noqa: FNE008
     if isinstance(service_account_path_or_info, str):
         if os.path.exists(service_account_path_or_info):
             # as file
-            credentials = (
-                google.oauth2.service_account.Credentials.from_service_account_file(
-                    service_account_path_or_info,
-                    scopes=scopes,
-                )
+            credentials = google.oauth2.service_account.Credentials.from_service_account_file(
+                service_account_path_or_info,
+                scopes=scopes,
             )
         else:
             # as json
             service_account_info = json.loads(service_account_path_or_info)
-            credentials = (
-                google.oauth2.service_account.Credentials.from_service_account_info(
-                    service_account_info,
-                    scopes=scopes,
-                )
-            )
-    else:
-        credentials = (
-            google.oauth2.service_account.Credentials.from_service_account_info(
-                service_account_path_or_info,
+            credentials = google.oauth2.service_account.Credentials.from_service_account_info(
+                service_account_info,
                 scopes=scopes,
             )
+    else:
+        credentials = google.oauth2.service_account.Credentials.from_service_account_info(
+            service_account_path_or_info,
+            scopes=scopes,
         )
     credentials.refresh(Request())
     return credentials
@@ -216,9 +215,7 @@ def get_credentials_using_google_application_credentials(  # noqa: FNE008
     Returns:
         google.oauth2.service_account.Credentials: Credentials
     """
-    google_application_credentials = os.environ.get(
-        "GOOGLE_APPLICATION_CREDENTIALS", None
-    )
+    google_application_credentials = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS", None)
     assert google_application_credentials, "GOOGLE_APPLICATION_CREDENTIALS is not set"
 
     return get_credentials_using_service_account(google_application_credentials, scopes)
@@ -270,28 +267,27 @@ def get_credentials_using_gcloud_auth_login(  # noqa: FNE008
         with open(os.path.join(gcloud_path, "active_config")) as f:
             configuration_name = f.readline()
 
-    config_path = os.path.join(
-        gcloud_path, f"configurations/config_{configuration_name}"
-    )
+    config_path = os.path.join(gcloud_path, f"configurations/config_{configuration_name}")
     assert os.path.exists(config_path), f"{config_path} does not exist"
 
     config_parser = configparser.ConfigParser()
-    config_parser.read(config_path)
+    _ = config_parser.read(config_path)
     account: str = config_parser["core"]["account"]
 
     credentials_db_path = os.path.join(gcloud_path, "credentials.db")
-    with contextlib.closing(sqlite3.connect(credentials_db_path)) as con:
-        with contextlib.closing(con.cursor()) as cur:
-            cur.execute(
-                "SELECT value FROM credentials WHERE account_id = ?",
-                (account,),
-            )
-            json_text = cur.fetchone()[0]
-            credentials_obj: Dict[str, Any] = json.loads(json_text)
+    with contextlib.closing(sqlite3.connect(credentials_db_path)) as con, contextlib.closing(
+        con.cursor()
+    ) as cur:
+        _ = cur.execute(
+            "SELECT value FROM credentials WHERE account_id = ?",
+            (account,),
+        )
+        json_text = cur.fetchone()[0]
+        credentials_obj: Dict[str, Any] = json.loads(json_text)
 
-            return google.oauth2.credentials.Credentials.from_authorized_user_info(
-                credentials_obj, scopes
-            )
+        return google.oauth2.credentials.Credentials.from_authorized_user_info(
+            credentials_obj, scopes
+        )
 
 
 def get_id_token_credentials_using_service_account(
@@ -397,9 +393,7 @@ def get_access_token(
         assert not isinstance(
             credentials, IDTokenCredentials
         ), f"credential type is {type(credentials).__name__}. Use get_credentials_using_service_account() instead."  # noqa: E501
-        raise NotImplementedError(
-            f'Unsupported credentials type: "{type(credentials)}"'
-        )
+        raise NotImplementedError(f'Unsupported credentials type: "{type(credentials)}"')
 
 
 # ========== IDトークン系（用途：Cloud Functionsを呼び出す） ==========
@@ -418,9 +412,7 @@ def get_id_token(
         assert not isinstance(
             credentials, google.oauth2.service_account.Credentials
         ), f"credentials is {type(credentials).__name__}. Use get_id_token_credentials_using_service_account() instead."  # noqa: E501
-        raise NotImplementedError(
-            f'Unsupported credentials type: "{type(credentials)}"'
-        )
+        raise NotImplementedError(f'Unsupported credentials type: "{type(credentials)}"')
 
 
 # ========== 汎用のGoogle API Client リソース ==========
@@ -448,3 +440,48 @@ def get_google_api_client_resource(
         credentials=credentials,
         static_discovery=False,
     )
+
+
+# ========== Firestore ==========
+
+
+@dataclass(frozen=True)
+class _LocalCredential(firebase_admin.credentials.Base):
+    credentials: google.auth.credentials.Credentials
+
+    def get_credential(self) -> google.auth.credentials.Credentials:
+        return self.credentials
+
+
+@contextmanager
+def firestore_client(
+    credentials: Optional[google.auth.credentials.Credentials],
+    project_id: str,
+) -> Generator[google.cloud.firestore.Client, None, None]:
+    """Firestoreクライアントを取得する。
+
+    以下のようにwith文をともなって使う。
+
+    with firestore_client(credentials, project_id) as client:
+        ここにコード
+
+    Args:
+        credentials (Optional[google.auth.credentials.Credentials]): Credentials。
+            環境変数GOOGLE_APPLICATION_CREDENTIALSで指定されたサービスアカウントで認可したい場合はNoneを指定する。
+            Cloud Functionsにおいて、デプロイされたCloud Functionsとひも付くサービスアカウントで認可したい場合もNoneを指定する。
+            これら以外の方法で認可したい場合は、非NoneのCredentialsインスタンスを指定する。
+        project_id (str): FirestoreのプロジェクトID
+
+    Returns:
+        google.cloud.firestore.Client: Firestoreクライアント
+    """
+    local_credentials = _LocalCredential(credentials) if credentials else None
+    app = initialize_app(
+        credential=local_credentials,
+        options={"projectId": project_id},
+    )
+    try:
+        client: google.cloud.firestore.Client = firestore.client(app)
+        yield client
+    finally:
+        delete_app(app)
