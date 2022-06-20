@@ -1,0 +1,26 @@
+---
+version: '0.2'
+ignorePaths:
+  - poetry.lock
+dictionaryDefinitions: []
+dictionaries: []
+words:
+  - autofix
+  - builtins
+  - checkmake
+  - firestore
+  - fstring
+  - gcloud
+  - googleapiclient
+  - oauthlib
+  - pautoflake
+  - pycache
+  - pyproject
+  - pyright
+  - pytest
+  - quwac
+  - shellcheck
+  - venv
+  - yamlfix
+ignoreWords: []
+import: []

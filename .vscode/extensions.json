@@ -1,0 +1,11 @@
+{
+  "recommendations": [
+    "bungcip.better-toml",
+    "donjayamanne.python-extension-pack",
+    "ms-python.python",
+    "ms-python.vscode-pylance",
+    "streetsidesoftware.code-spell-checker",
+    "timonwong.shellcheck",
+    "ms-vscode.makefile-tools"
+  ]
+}

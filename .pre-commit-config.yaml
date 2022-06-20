@@ -1,0 +1,64 @@
+---
+repos:
+  # Python
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.3.0
+    hooks:
+      - id: check-case-conflict
+      - id: check-added-large-files
+      - id: check-symlinks
+      - id: detect-private-key
+      - id: check-merge-conflict
+      - id: check-ast
+      - id: check-builtin-literals
+      - id: fix-byte-order-marker
+      - id: mixed-line-ending
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+      - id: name-tests-test
+  - repo: https://github.com/psf/black
+    rev: 22.3.0
+    hooks:
+      - id: black
+  - repo: https://github.com/pycqa/isort
+    rev: 5.10.1
+    hooks:
+      - id: isort
+  - repo: https://github.com/quwac/pyproject-autoflake
+    rev: main
+    hooks:
+      - id: pautoflake
+  - repo: https://github.com/necaris/pre-commit-pyright
+    rev: 1.1.53
+    hooks:
+      - id: pyright
+  - repo: https://github.com/csachs/pyproject-flake8
+    rev: v0.0.1a4
+    hooks:
+      - id: pyproject-flake8
+  # JSON
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.3.0
+    hooks:
+      - id: pretty-format-json
+        args: [--autofix]
+  # YAML
+  - repo: https://github.com/lyz-code/yamlfix
+    rev: 0.9.0
+    hooks:
+      - id: yamlfix
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.3.0
+    hooks:
+      - id: sort-simple-yaml
+  # TOML
+  - repo: https://github.com/pappasam/toml-sort
+    rev: v0.20.0
+    hooks:
+      - id: toml-sort
+        args: [-a, -i]
+  # Shell
+  - repo: https://github.com/jumanjihouse/pre-commit-hooks
+    rev: 2.1.6
+    hooks:
+      - id: shellcheck
