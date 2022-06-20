@@ -9,17 +9,22 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import Any, Dict, Generator, List, Optional, Tuple, Union
 
-import firebase_admin.credentials
 import google.auth.credentials
-import google.cloud.firestore
 import google.oauth2.credentials
 import google.oauth2.service_account
 import requests
-from firebase_admin import delete_app, firestore, initialize_app
 from google.auth.transport.requests import Request
 from google.oauth2.service_account import IDTokenCredentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import Resource, build
+
+# Firestore imports
+try:
+    import firebase_admin.credentials
+    import google.cloud.firestore
+    from firebase_admin import delete_app, firestore, initialize_app
+except ImportError:
+    pass
 
 # ========== 前知識 ==========
 #
@@ -446,7 +451,7 @@ def get_google_api_client_resource(
 
 
 @dataclass(frozen=True)
-class _LocalCredential(firebase_admin.credentials.Base):
+class _LocalCredential(firebase_admin.credentials.Base):  # type: ignore
     credentials: google.auth.credentials.Credentials
 
     def get_credential(self) -> google.auth.credentials.Credentials:

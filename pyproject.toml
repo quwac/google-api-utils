@@ -37,7 +37,7 @@ name = "google-api-utils"
 version = "1.0.0"
 
 [tool.poetry.dependencies]
-firebase-admin = "^5.2.0"
+firebase-admin = {version = "^5.2.0", optional = true}
 google-api-python-client = "^2.51.0"
 google-auth = "^2.8.0"
 google-auth-oauthlib = "^0.5.2"
@@ -61,6 +61,9 @@ pyproject-autoflake = "^1.0.1"
 pyproject-flake8 = "^0.0.1-alpha.4"
 pyright = "^1.1.253"
 pytest = "^7.1.2"
+
+[tool.poetry.extras]
+firestore = ["firebase-admin"]
 
 [tool.pyright]
 defineConstant = { DEBUG = true }
