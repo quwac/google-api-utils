@@ -67,15 +67,18 @@ firestore = ["firebase-admin"]
 
 [tool.pyright]
 defineConstant = { DEBUG = true }
-exclude = ["**/node_modules",
-    "**/__pycache__",
+exclude = [
+  "**/node_modules",
+  "**/__pycache__",
+  "**/.venv",
+  "**/.cache"
 ]
 executionEnvironments = [
-  { root = "src" }
+  { root = "." }
 ]
 ignore = []
-include = ["app"]
-pythonVersion = "3.10"
+include = ["."]
+pythonVersion = "3.7"
 reportCallInDefaultInitializer = true
 reportImplicitStringConcatenation = true
 reportMissingImports = true

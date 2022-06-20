@@ -18,14 +18,6 @@ from google.oauth2.service_account import IDTokenCredentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import Resource, build
 
-# Firestore imports
-try:
-    import firebase_admin.credentials
-    import google.cloud.firestore
-    from firebase_admin import delete_app, firestore, initialize_app
-except ImportError:
-    pass
-
 # ========== 前知識 ==========
 #
 # Credentialsクラスは4つある。
@@ -449,44 +441,50 @@ def get_google_api_client_resource(
 
 # ========== Firestore ==========
 
+try:
+    import firebase_admin.credentials  # type: ignore
+    import google.cloud.firestore  # type: ignore
+    from firebase_admin import delete_app, firestore, initialize_app  # type: ignore
 
-@dataclass(frozen=True)
-class _LocalCredential(firebase_admin.credentials.Base):  # type: ignore
-    credentials: google.auth.credentials.Credentials
+    @dataclass(frozen=True)
+    class _LocalCredential(firebase_admin.credentials.Base):  # type: ignore
+        credentials: google.auth.credentials.Credentials
 
-    def get_credential(self) -> google.auth.credentials.Credentials:
-        return self.credentials
+        def get_credential(self) -> google.auth.credentials.Credentials:
+            return self.credentials
 
+    @contextmanager
+    def firestore_client(
+        credentials: Optional[google.auth.credentials.Credentials],
+        project_id: str,
+    ) -> Generator[google.cloud.firestore.Client, None, None]:  # type: ignore
+        """Firestoreクライアントを取得する。
 
-@contextmanager
-def firestore_client(
-    credentials: Optional[google.auth.credentials.Credentials],
-    project_id: str,
-) -> Generator[google.cloud.firestore.Client, None, None]:
-    """Firestoreクライアントを取得する。
+        以下のようにwith文をともなって使う。
 
-    以下のようにwith文をともなって使う。
+        with firestore_client(credentials, project_id) as client:
+            ここにコード
 
-    with firestore_client(credentials, project_id) as client:
-        ここにコード
+        Args:
+            credentials (Optional[google.auth.credentials.Credentials]): Credentials。
+                環境変数GOOGLE_APPLICATION_CREDENTIALSで指定されたサービスアカウントで認可したい場合はNoneを指定する。
+                Cloud Functionsにおいて、デプロイされたCloud Functionsとひも付くサービスアカウントで認可したい場合もNoneを指定する。
+                これら以外の方法で認可したい場合は、非NoneのCredentialsインスタンスを指定する。
+            project_id (str): FirestoreのプロジェクトID
 
-    Args:
-        credentials (Optional[google.auth.credentials.Credentials]): Credentials。
-            環境変数GOOGLE_APPLICATION_CREDENTIALSで指定されたサービスアカウントで認可したい場合はNoneを指定する。
-            Cloud Functionsにおいて、デプロイされたCloud Functionsとひも付くサービスアカウントで認可したい場合もNoneを指定する。
-            これら以外の方法で認可したい場合は、非NoneのCredentialsインスタンスを指定する。
-        project_id (str): FirestoreのプロジェクトID
+        Returns:
+            google.cloud.firestore.Client: Firestoreクライアント
+        """
 
-    Returns:
-        google.cloud.firestore.Client: Firestoreクライアント
-    """
-    local_credentials = _LocalCredential(credentials) if credentials else None
-    app = initialize_app(
-        credential=local_credentials,
-        options={"projectId": project_id},
-    )
-    try:
-        client: google.cloud.firestore.Client = firestore.client(app)
-        yield client
-    finally:
-        delete_app(app)
+        local_credentials = _LocalCredential(credentials) if credentials else None
+        app = initialize_app(
+            credential=local_credentials,
+            options={"projectId": project_id},
+        )
+        try:
+            yield firestore.client(app)
+        finally:
+            delete_app(app)
+
+except ImportError:
+    pass
