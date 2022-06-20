@@ -12,6 +12,7 @@ import google.oauth2.credentials
 import google.oauth2.service_account
 import requests
 from google.auth.transport.requests import Request
+from google.oauth2.service_account import IDTokenCredentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import Resource, build
 
@@ -161,7 +162,9 @@ def get_credentials_using_service_account(  # noqa: FNE008
     1. 「サービス アカウント」から作成できるJSONファイル: https://console.cloud.google.com/iam-admin/serviceaccounts
 
     Args:
-        service_account_path_or_info (Union[str, Dict[str, Any]]): 1.のファイルパス、1.のファイルをテキストとして読み込んだ結果、または1.のファイルをjson.loadした結果
+        service_account_path_or_info (Union[str, Dict[str, Any]]):
+            1.のファイルパス、1.のファイルをテキストとして読み込んだ結果、
+            または1.のファイルをjson.loadした結果
         scopes (List[str]): 認可を与えたいスコープ
 
     Returns:
@@ -294,7 +297,7 @@ def get_credentials_using_gcloud_auth_login(  # noqa: FNE008
 def get_id_token_credentials_using_service_account(
     service_account_path_or_info: Union[str, Dict[str, Any]],
     scopes: List[str],
-) -> google.oauth2.service_account.IDTokenCredentials:
+) -> IDTokenCredentials:
     """サービスアカウントファイルによってIDトークンを返すCredentialsを取得する。
 
     必要な準備＆ファイル
@@ -302,7 +305,8 @@ def get_id_token_credentials_using_service_account(
     1. 「サービス アカウント」から作成できるJSONファイル: https://console.cloud.google.com/iam-admin/serviceaccounts
 
     Args:
-        service_account_path_or_info (Union[str, Dict[str, Any]]): 1.のファイルパス、1.のファイルをテキストとして読み込んだ結果、または1.のファイルをjson.loadした結果
+        service_account_path_or_info (Union[str, Dict[str, Any]]): 1.のファイルパス、
+            1.のファイルをテキストとして読み込んだ結果、または1.のファイルをjson.loadした結果
         scopes (List[str]): 認可を与えたいスコープ
 
     Returns:
@@ -312,23 +316,21 @@ def get_id_token_credentials_using_service_account(
     if isinstance(service_account_path_or_info, str):
         if os.path.exists(service_account_path_or_info):
             # as file
-            credentials = google.oauth2.service_account.IDTokenCredentials.from_service_account_file(
+            credentials = IDTokenCredentials.from_service_account_file(
                 service_account_path_or_info,
                 scopes=scopes,
             )
         else:
             # as json
             service_account_info = json.loads(service_account_path_or_info)
-            credentials = google.oauth2.service_account.IDTokenCredentials.from_service_account_info(
+            credentials = IDTokenCredentials.from_service_account_info(
                 service_account_info,
                 scopes=scopes,
             )
     else:
-        credentials = (
-            google.oauth2.service_account.IDTokenCredentials.from_service_account_info(
-                service_account_path_or_info,
-                scopes=scopes,
-            )
+        credentials = IDTokenCredentials.from_service_account_info(
+            service_account_path_or_info,
+            scopes=scopes,
         )
     credentials.refresh(Request())
     return credentials
@@ -393,7 +395,7 @@ def get_access_token(
         return credentials.token
     else:
         assert not isinstance(
-            credentials, google.oauth2.service_account.IDTokenCredentials
+            credentials, IDTokenCredentials
         ), f"credential type is {type(credentials).__name__}. Use get_credentials_using_service_account() instead."  # noqa: E501
         raise NotImplementedError(
             f'Unsupported credentials type: "{type(credentials)}"'
@@ -410,7 +412,7 @@ def get_id_token(
         id_token = credentials.id_token
         assert id_token, "Maybe you forgot refresh token."
         return id_token
-    elif isinstance(credentials, google.oauth2.service_account.IDTokenCredentials):
+    elif isinstance(credentials, IDTokenCredentials):
         return credentials.token
     else:
         assert not isinstance(
